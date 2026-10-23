@@ -1,63 +1,65 @@
-const effects=[
- ['Дневной салют','Взрыв цвета в момент вашего «да»','ceremony'],
- ['Фейерверк-шоу','Ночной салют на финал свадьбы','finale'],
- ['Холодные сценические фонтаны','Световые акценты для особенных мгновений','dance finale'],
- ['Пиротехнические огни','Огненный акцент в вашей программе','finale'],
- ['Цветные дымовые вспышки','Яркая палитра выездной регистрации','ceremony'],
- ['Крио-пушки','Энергия танцпола в одном залпе','party'],
- ['Вертикальные дым-машины','Динамичные струи дыма в ритме вечера','party'],
- ['Конфетти-запуск','Тысячи маленьких поводов для восторга','ceremony party'],
- ['Серпантин-запуск','Праздник, который заполняет пространство','party'],
- ['Снег на танец','Ваша маленькая зимняя сказка в любой сезон','dance'],
- ['Тяжёлый дым на сухом льду','Первый танец над облаками','dance'],
- ['Спаркуляры','Искры для самых ярких акцентов','dance party'],
- ['Пиротехническая вертушка','Вращение холодных сценических фонтанов','finale']
-];
-const scenarios={
- ceremony:{kicker:'МГНОВЕНИЕ, С КОТОРОГО ВСЁ НАЧИНАЕТСЯ',title:'Ваше «да» в цвете',description:'Объятия, первый поцелуй и вспышка цвета. Обсудим акцент, который подчеркнёт кульминацию церемонии.',tags:['Дневной салют','Цветные дымовые вспышки']},
- dance:{kicker:'ТОЛЬКО ВЫ. И НЕМНОГО ВОЛШЕБСТВА.',title:'Танец над облаками',description:'Тяжёлый дым стелется под ногами, а искры обрамляют вашу историю. Для нежного настроения можно обсудить снег.',tags:['Тяжёлый дым','Холодные фонтаны','Снег — по желанию']},
- party:{kicker:'КОГДА НАСТРОЕНИЕ НА МАКСИМУМЕ',title:'Всё на танцпол',description:'Конфетти, дымовые акценты и энергия гостей. Соберём эффекты в ритме вашего праздника.',tags:['Конфетти','Крио-пушки','Вертикальный дым']},
- finale:{kicker:'ПОСЛЕДНИЙ АККОРД. ПЕРВЫЕ МУРАШКИ.',title:'Небо в вашу честь',description:'Все рядом, вы держитесь за руки, и вечер заканчивается фейерверк-шоу. Именно этот момент хочется забрать с собой.',tags:['Ночной салют','Холодные фонтаны']}
-};
-const list=document.querySelector('#effect-list');
+'use strict';
+const effects=window.PIRO_EFFECTS;
+const $=(s,root=document)=>root.querySelector(s);
+const $$=(s,root=document)=>[...root.querySelectorAll(s)];
+const money=n=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const effectById=id=>effects.find(e=>e.id===id);
+const detailDialog=$('#detail-dialog'),mediaDialog=$('#media-dialog');
+let toastTimer;
+function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4200)}
+function watchImages(root=document){$$('img',root).forEach(img=>{const fail=()=>{const shell=img.closest('.media-shell');if(shell){shell.classList.add('failed');const notice=$('.media-unavailable',shell);if(notice)notice.hidden=false}img.setAttribute('data-load-state','failed')};img.addEventListener('error',fail,{once:true});if(img.complete&&img.naturalWidth===0)fail()})}
 function renderEffects(filter='all'){
- list.replaceChildren();effects.forEach(([name,description,categories],i)=>{
-  if(filter!=='all'&&!categories.split(' ').includes(filter))return;
-  const row=document.createElement('div');row.className='effect-row';
-  const number=document.createElement('span');number.textContent=String(i+1).padStart(2,'0');
-  const copy=document.createElement('div'),title=document.createElement('h3'),desc=document.createElement('p'),star=document.createElement('b');
-  title.textContent=name;desc.textContent=description;star.textContent='✳';star.setAttribute('aria-hidden','true');copy.append(title,desc);row.append(number,copy,star);list.append(row);
- });
+ $('#effect-grid').innerHTML=effects.filter(e=>filter==='all'||e.category.split(' ').includes(filter)).map(e=>`<article class="effect-card"><div class="effect-visual ${e.image?'media-shell':'art-'+e.id}">${e.image?`<img src="${e.image}" alt="${esc(e.technical)}" loading="lazy">`:`<span class="effect-symbol" aria-hidden="true">${e.icon}</span>`}<span class="effect-kicker">${e.tag}</span></div><div class="effect-card-copy"><h3>${e.name}</h3><span class="technical">${e.technical}</span><p>${e.short}</p><div class="effect-card-footer"><strong>от ${money(e.price)}</strong><button data-detail="${e.id}" aria-label="Подробнее: ${esc(e.technical)}">Что входит <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg></button></div></div></article>`).join('');
+ $$('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter))});watchImages($('#effect-grid'));
 }
-document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{
- document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button))});renderEffects(button.dataset.filter);
-}));
-let selected='dance';
-function selectMoment(key){
- if(!scenarios[key])return;selected=key;const s=scenarios[key];
- document.querySelector('#scenario-kicker').textContent=s.kicker;document.querySelector('#scenario-title').textContent=s.title;document.querySelector('#scenario-description').textContent=s.description;
- document.querySelector('#scenario-tags').replaceChildren(...s.tags.map(tag=>{const el=document.createElement('span');el.textContent=tag;return el}));
- document.querySelectorAll('[data-select]').forEach(b=>{b.classList.toggle('active',b.dataset.select===key);b.setAttribute('aria-pressed',String(b.dataset.select===key))});
- document.querySelector('#share-status').textContent='';
+function openDetail(id){const e=effectById(id);if(!e)return;
+ $('#detail-content').innerHTML=`<div class="detail-body"><div class="detail-art ${e.image?'media-shell':''}">${e.image?`<img src="${e.image}" alt="${esc(e.technical)}">`:`<span class="effect-symbol" aria-hidden="true">${e.icon}</span>`}</div><div class="detail-text"><span class="technical">${e.technical}</span><h2 id="detail-title">${e.name}</h2><p>${e.description}</p><h4>Что входит в базовый сценарий</h4><ul class="check-list">${e.included.map(s=>`<li>${s}</li>`).join('')}</ul><h4>Как это работает</h4><p>${e.how}</p><h4>Длительность</h4><p>${e.duration}</p><h4>Что важно учесть</h4><p>${e.condition}</p><div class="detail-price">от ${money(e.price)}</div><p class="fine-print">Предварительная цена. Точные параметры, выезд и итоговая смета согласуются до бронирования.</p><button class="button" data-add="${e.id}">Добавить в наш сценарий <span>+</span></button>${e.video?`<button class="detail-video" data-video="${e.video}">Посмотреть реальный запуск <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 12 7-12 7z"/></svg></button>`:''}</div></div>`;
+ detailDialog.setAttribute('aria-labelledby','detail-title');watchImages(detailDialog);detailDialog.showModal();detailDialog.scrollTop=0;
 }
-document.querySelectorAll('[data-select]').forEach(b=>b.addEventListener('click',()=>selectMoment(b.dataset.select)));
-document.querySelectorAll('[data-moment]').forEach(a=>a.addEventListener('click',()=>selectMoment(a.dataset.moment)));
-function planText(){const s=scenarios[selected],date=document.querySelector('#wedding-date').value;return `Наша свадьба × Piro Family\n\n${s.title}\n${s.description}\n\nЭффекты: ${s.tags.join(', ')}${date?'\nДата: '+date.split('-').reverse().join('.'):''}\n\nХотим обсудить этот сценарий с Романом Аксеновым.\nНижний Новгород · https://pyro-family.ru/\n\nЭто идея для обсуждения. Состав, стоимость, дата и возможность запуска согласуются отдельно.`}
-document.querySelector('#save-plan').addEventListener('click',()=>{
- const url=URL.createObjectURL(new Blob(['\ufeff'+planText()],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='Наша-свадьба-Piro-Family.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);document.querySelector('#share-status').textContent='Сценарий сохранён в файл. Отправьте его любимому человеку или Роману для обсуждения.';
+const videos={1:{title:'Цветные дымовые вспышки · Оранжерея Зимёнки Парк',src:'https://cvetnoydym.ru/111/1.mp4'},2:{title:'Дневной салют · шатёр «Море»',src:'https://cvetnoydym.ru/111/2.mp4'},3:{title:'Фонтаны и «павлин» · откос влюблённых',src:'https://cvetnoydym.ru/111/3.mp4'},4:{title:'Тяжёлый дым · концертный зал PREMIO',src:'https://cvetnoydym.ru/111/4.mp4'}};
+function openVideo(id){const v=videos[id];if(!v)return;if(detailDialog.open)detailDialog.close();$('#media-title').textContent=v.title;$('#media-content').replaceChildren();$('#media-status').textContent='';const video=document.createElement('video');video.controls=true;video.playsInline=true;video.preload='metadata';video.src=v.src;video.addEventListener('error',()=>{$('#media-status').textContent='Видео сейчас не загрузилось. Попробуйте открыть оригинал или посмотрите его позже.'});$('#media-content').append(video);$('#media-original').href=v.src;mediaDialog.setAttribute('aria-labelledby','media-title');mediaDialog.showModal();video.play().catch(()=>{});}
+function openReview(id){const src=`https://cvetnoydym.ru/111/otz/${id}.jpg`;$('#media-title').textContent='Отзыв клиента Piro Family';$('#media-status').textContent='';const img=document.createElement('img');img.src=src;img.alt='Оригинал отзыва клиента Piro Family';img.addEventListener('error',()=>{$('#media-status').textContent='Изображение не загрузилось. Попробуйте открыть оригинал.'});$('#media-content').replaceChildren(img);$('#media-original').href=src;mediaDialog.setAttribute('aria-labelledby','media-title');mediaDialog.showModal()}
+[detailDialog,mediaDialog].forEach(dialog=>{ $('.dialog-close',dialog).addEventListener('click',()=>dialog.close());dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close()}})});
+mediaDialog.addEventListener('close',()=>{const video=$('video',mediaDialog);if(video){video.pause();video.removeAttribute('src');video.load()}$('#media-content').replaceChildren()});
+const moments=[['ceremony','Выездная регистрация','Тот самый первый поцелуй'],['dance','Первый танец','Нежно, как в вашей песне'],['party','Вечеринка','Все на танцпол'],['finale','Финал вечера','Красивый последний аккорд']];
+const state={step:0,moments:new Set(['dance']),selected:new Set(),date:'',venue:'',place:'Пока выбираем',budget:'Пока не определились'};
+function selectedEffects(){return effects.filter(e=>state.selected.has(e.id))}
+function total(){return selectedEffects().reduce((sum,e)=>sum+e.price,0)}
+function goQuiz(){document.querySelector('#quiz').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+function renderQuiz(){
+ $('#quiz-status').textContent='';$('#quiz-step-label').textContent=`ШАГ ${state.step+1} ИЗ 4`;$('#quiz-progress').style.width=((state.step+1)*25)+'%';$('#quiz-back').hidden=state.step===0;$('#quiz-next').hidden=state.step===3;$('#quiz-next').innerHTML=state.step===2?'Мой сценарий <span>♡</span>':'Дальше <span>→</span>';$('#quiz-back').textContent=state.step===3?'← Изменить детали':'← Назад';
+ const root=$('#quiz-content');
+ if(state.step===0){root.innerHTML=`<h3>Какой момент сделаем особенным?</h3><p class="quiz-help">Можно выбрать несколько. У каждого момента будет своё настроение.</p><div class="quiz-options">${moments.map(([key,title,sub])=>`<label class="quiz-option"><input type="checkbox" name="moment" value="${key}" ${state.moments.has(key)?'checked':''}><span><strong>${title}</strong><small>${sub}</small></span></label>`).join('')}</div>`}
+ if(state.step===1){const matching=effects.filter(e=>state.selected.has(e.id)||e.category.split(' ').some(c=>state.moments.has(c)));root.innerHTML=`<h3>Что откликается именно вам?</h3><p class="quiz-help">Выберите эффекты. Цены предварительные — точную смету составим под площадку.</p><div class="quiz-options">${matching.map(e=>`<label class="quiz-option"><input type="checkbox" name="effect" value="${e.id}" ${state.selected.has(e.id)?'checked':''}><span><strong>${e.technical}</strong><small>от ${money(e.price)}</small></span></label>`).join('')}</div><p class="result-meta" id="selection-total">Выбрано: ${state.selected.size} · от ${money(total())}</p>`}
+ if(state.step===2){root.innerHTML=`<h3>Немного о вашем дне</h3><p class="quiz-help">Все поля необязательные. Если пока не знаете — так и оставьте.</p><div class="field-row"><label class="field"><span>Дата свадьбы</span><input type="date" name="date" value="${esc(state.date)}"></label><label class="field"><span>Где празднуем?</span><select name="place">${['Пока выбираем','В помещении','На открытом воздухе','И в зале, и на улице'].map(v=>`<option ${v===state.place?'selected':''}>${v}</option>`).join('')}</select></label></div><label class="field"><span>Название площадки</span><input type="text" name="venue" value="${esc(state.venue)}" maxlength="120" placeholder="Например, Оранжерея Зимёнки Парк" autocomplete="off"></label><label class="field"><span>Комфортный бюджет на эффекты</span><select name="budget">${['Пока не определились','До 15 000 ₽','15 000–30 000 ₽','30 000–50 000 ₽','От 50 000 ₽'].map(v=>`<option ${v===state.budget?'selected':''}>${v}</option>`).join('')}</select></label>`}
+ if(state.step===3){const budgetMax={'До 15 000 ₽':15000,'15 000–30 000 ₽':30000,'30 000–50 000 ₽':50000}[state.budget];root.innerHTML=`<h3>Ваша свадьба с мурашками ♡</h3><p class="quiz-help">Вот начало вашей истории. Состав можно обсудить и изменить вместе с Романом.</p><ul class="result-list">${selectedEffects().map(e=>`<li><span>${e.technical}</span><span>от ${money(e.price)} <button type="button" data-remove="${e.id}" aria-label="Убрать: ${esc(e.technical)}">×</button></span></li>`).join('')}</ul><button type="button" class="edit-choice">Изменить набор эффектов</button><div class="result-price"><span>ПРЕДВАРИТЕЛЬНО</span><strong>от ${money(total())}</strong></div><p class="result-meta">${state.date?'Дата: '+esc(formatDate(state.date))+'<br>':''}${state.venue?'Площадка: '+esc(state.venue)+'<br>':''}${esc(state.place)} · ${esc(state.budget)}</p>${budgetMax&&total()>budgetMax?'<p class="result-note">Выбранные эффекты превышают ваш ориентир по бюджету. Уберите часть или обсудите с Романом, какие моменты важнее сохранить.</p>':''}<div class="result-actions"><a id="telegram-plan" class="button coral" href="${telegramLink()}" target="_blank" rel="noopener">Обсудить с Романом в Telegram <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg></a><button type="button" class="button ghost" id="save-plan">Сохранить сценарий <span>↓</span></button><button type="button" class="underlined" id="share-plan">Поделиться с любимым человеком <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg></button></div><p class="result-note">Кнопка открывает Telegram с подготовленным текстом. Отправьте его сами. Дата не бронируется автоматически; выезд, возможность запуска и итоговая стоимость согласуются отдельно.</p>`}
+}
+function formatDate(date){const [y,m,d]=date.split('-');return `${d}.${m}.${y}`}
+function planText(){return `Здравствуйте, Роман! Хотим обсудить спецэффекты на свадьбу.\n\n${selectedEffects().map(e=>`• ${e.technical} — от ${money(e.price)}`).join('\n')}\n\nПредварительно: от ${money(total())}.\n${state.date?'Дата: '+formatDate(state.date)+'\n':''}${state.venue?'Площадка: '+state.venue+'\n':''}Место: ${state.place}.\nБюджет: ${state.budget}.\n\nПодскажите, свободна ли дата, что подойдёт площадке и какая будет итоговая стоимость с выездом?\n\nPiro Family · +7 (999) 075-41-24 · https://t.me/pyro_family`}
+function telegramLink(){return 'https://t.me/pyro_family?text='+encodeURIComponent(planText())}
+function savePlan(){const url=URL.createObjectURL(new Blob(['\ufeff'+planText()],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='Наша-свадьба-Piro-Family.txt';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Сценарий сохранён. Его можно отправить Роману или любимому человеку.')}
+async function sharePlan(){try{if(navigator.share){await navigator.share({title:'Наша свадьба × Piro Family',text:planText()})}else if(navigator.clipboard&&isSecureContext){await navigator.clipboard.writeText(planText());toast('Сценарий скопирован. Отправьте его в мессенджере.')}else{toast('Сохраните сценарий в файл и отправьте его в мессенджере.')}}catch(e){if(e.name!=='AbortError')toast('Не удалось поделиться. Можно сохранить сценарий в файл.')}}
+$('#quiz-content').addEventListener('change',e=>{const el=e.target;if(el.name==='moment'){el.checked?state.moments.add(el.value):state.moments.delete(el.value)}if(el.name==='effect'){el.checked?state.selected.add(el.value):state.selected.delete(el.value);$('#selection-total').textContent=`Выбрано: ${state.selected.size} · от ${money(total())}`}if(['date','place','budget'].includes(el.name))state[el.name]=el.value});
+$('#quiz-content').addEventListener('input',e=>{if(e.target.name==='venue')state.venue=e.target.value});
+$('#quiz-form').addEventListener('submit',e=>{e.preventDefault();if(state.step===0&&!state.moments.size){$('#quiz-status').textContent='Выберите хотя бы один момент.';return}if(state.step===1&&!state.selected.size){$('#quiz-status').textContent='Выберите хотя бы один эффект.';return}if(state.step<3){state.step++;renderQuiz();$('#quiz-content h3').setAttribute('tabindex','-1');$('#quiz-content h3').focus({preventScroll:true})}});
+$('#quiz-back').addEventListener('click',()=>{state.step=Math.max(0,state.step-1);renderQuiz()});
+function addEffects(ids){ids.forEach(id=>{const e=effectById(id);if(e){state.selected.add(id);e.category.split(' ').forEach(c=>state.moments.add(c))}});if(detailDialog.open)detailDialog.close();state.step=1;renderQuiz();goQuiz();toast('Добавлено в ваш сценарий. Можно выбрать ещё эффекты.')}
+document.addEventListener('click',e=>{
+ const detail=e.target.closest('[data-detail]');if(detail)openDetail(detail.dataset.detail);
+ const video=e.target.closest('[data-video]');if(video)openVideo(video.dataset.video);
+ const review=e.target.closest('[data-review]');if(review)openReview(review.dataset.review);
+ const filter=e.target.closest('[data-filter]');if(filter)renderEffects(filter.dataset.filter);
+ const go=e.target.closest('[data-go-filter]');if(go)renderEffects(go.dataset.goFilter);
+ const add=e.target.closest('[data-add]');if(add)addEffects([add.dataset.add]);
+ const bundle=e.target.closest('[data-bundle]');if(bundle){state.selected.clear();state.moments.clear();addEffects(bundle.dataset.bundle.split(','))}
+ const remove=e.target.closest('[data-remove]');if(remove){state.selected.delete(remove.dataset.remove);if(!state.selected.size)state.step=1;renderQuiz()}
+ if(e.target.closest('.edit-choice')){state.step=1;renderQuiz()}
+ if(e.target.closest('#save-plan'))savePlan();if(e.target.closest('#share-plan'))sharePlan();
 });
-document.querySelector('#share-plan').addEventListener('click',async()=>{
- const text=planText(),status=document.querySelector('#share-status');
- try{if(navigator.share){await navigator.share({title:'Наша свадьба × Piro Family',text});status.textContent='Сценарий передан в меню отправки.'}else if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);status.textContent='Сценарий скопирован. Отправьте его в любимый мессенджер.'}else{status.textContent='В этом браузере отправка недоступна. Нажмите «Сохранить наш сценарий» и отправьте файл.'}}catch(e){if(e.name!=='AbortError')status.textContent='Не удалось поделиться. Сохраните сценарий в файл — его тоже можно отправить.'}
-});
-document.querySelector('#year').textContent=new Date().getFullYear();renderEffects();selectMoment('dance');
-// Canvas artwork: an original animated illustration, not a portfolio photograph.
-const canvas=document.querySelector('#fireworks'),ctx=canvas.getContext('2d');
-const reduced=matchMedia('(prefers-reduced-motion: reduce)');let w,h,particles=[],frame,last=0,lastBurst=0;
-function burst(x,y,scale=1){for(let i=0;i<100;i++){const angle=Math.PI*2*i/100;const speed=(1+Math.random()*2.7)*scale;particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1,decay:.004+Math.random()*.005,color:Math.random()>.25?'217,236,151':'245,211,163',trail:[]})}if(particles.length>800)particles.splice(0,particles.length-800)}
-function resize(){w=canvas.clientWidth;h=canvas.clientHeight;const d=Math.min(devicePixelRatio||1,2);canvas.width=w*d;canvas.height=h*d;ctx.setTransform(d,0,0,d,0,0);if(reduced.matches)still()}
-function still(){ctx.clearRect(0,0,w,h);for(const [x,y,r] of [[w*.77,h*.29,w*.19],[w*.93,h*.6,w*.12]]){for(let i=0;i<90;i++){const a=i/90*Math.PI*2;ctx.strokeStyle=`rgba(217,236,151,${.15+(i%5)*.08})`;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r*.2,y+Math.sin(a)*r*.2);ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);ctx.stroke()}}}
-function tick(time){const dt=Math.min((time-last)/16.67||1,2);last=time;ctx.clearRect(0,0,w,h);if(time-lastBurst>2100){burst(w*(.62+Math.random()*.3),h*(.16+Math.random()*.39),w<600?.6:1.1);lastBurst=time}
- for(const p of particles){p.trail.push([p.x,p.y]);if(p.trail.length>9)p.trail.shift();p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.009*dt;p.vx*=.995;p.life-=p.decay*dt;ctx.strokeStyle=`rgba(${p.color},${Math.max(0,p.life)*.65})`;ctx.lineWidth=1;ctx.beginPath();for(const [x,y] of p.trail)ctx.lineTo(x,y);ctx.stroke();ctx.fillStyle=`rgba(${p.color},${Math.max(0,p.life)})`;ctx.fillRect(p.x,p.y,1.5,1.5)}particles=particles.filter(p=>p.life>0);frame=requestAnimationFrame(tick)}
-function run(){cancelAnimationFrame(frame);if(reduced.matches){still();return}if(!document.hidden){last=performance.now();frame=requestAnimationFrame(tick)}}
-window.addEventListener('resize',resize);document.addEventListener('visibilitychange',run);reduced.addEventListener('change',run);document.querySelector('#spark-trigger').addEventListener('click',()=>{if(reduced.matches){still();return}burst(w*.74,h*.3,1.8);burst(w*.9,h*.54,1.1)});resize();run();
+$('.menu-toggle').addEventListener('click',()=>{const open=$('#mobile-nav').hidden;$('#mobile-nav').hidden=!open;$('.menu-toggle').setAttribute('aria-expanded',String(open));$('.menu-toggle').setAttribute('aria-label',open?'Закрыть меню':'Открыть меню')});
+$$('#mobile-nav a').forEach(a=>a.addEventListener('click',()=>{$('#mobile-nav').hidden=true;$('.menu-toggle').setAttribute('aria-expanded','false');$('.menu-toggle').setAttribute('aria-label','Открыть меню')}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#mobile-nav').hidden=true;$('.menu-toggle').setAttribute('aria-expanded','false')}});
+$('#privacy-button').addEventListener('click',()=>{$('#detail-content').innerHTML='<div class="privacy-copy"><h2 id="privacy-title">Ваш сценарий остаётся вашим</h2><p>Квиз хранит выбранные эффекты и введённые детали только в памяти открытой страницы. После перезагрузки они исчезнут. Мы не отправляем их на сервер и не запрашиваем номер телефона.</p><p>При переходе в Telegram выбранные эффекты и указанные вами детали включаются в ссылку как подготовленный текст. Отправка сообщения выполняется вами в Telegram и регулируется правилами этого сервиса.</p><p>Фото и видео загружаются с cvetnoydym.ru, а шрифты — с Google Fonts. Эти сервисы получают обычные данные сетевого запроса, например IP-адрес. Собственные счётчики аналитики и рекламные cookies на этой странице не используются.</p><p>Контакт для вопросов: <a href="mailto:info@pyro-family.ru">info@pyro-family.ru</a>.</p></div>';detailDialog.setAttribute('aria-labelledby','privacy-title');detailDialog.showModal()});
+$('#year').textContent=new Date().getFullYear();renderEffects();renderQuiz();watchImages();
+if('IntersectionObserver'in window&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}},{threshold:.08});$$('.section-heading,.moment-card,.process-grid article,.about-copy').forEach(el=>{el.classList.add('reveal-ready');observer.observe(el)})}
